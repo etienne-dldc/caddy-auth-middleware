@@ -15,12 +15,14 @@ Use the handler directive in your Caddyfile:
 
 tower_auth {
     auth_server http://tower-auth:3000
+    public_auth_server https://auth.example.com
     cookie_name tower_auth
     logout_path /logout
 }
 
 Subdirectives:
-- auth_server: required auth server base URL
+- auth_server: required internal auth server base URL (used by Caddy for /exchange, /check, /logout)
+- public_auth_server: optional public auth server URL used for browser redirects (defaults to auth_server)
 - cookie_name: optional, default tower_auth
 - logout_path: optional, default /logout
 

@@ -39,6 +39,11 @@ type TowerAuth struct {
 	// Example: http://tower-auth:3000
 	AuthServerURL string `json:"auth_server_url"`
 
+	// PublicAuthServerURL is the auth server URL used for browser redirects.
+	// Optional; defaults to AuthServerURL.
+	// Example: https://auth.example.com
+	PublicAuthServerURL string `json:"public_auth_server_url,omitempty"`
+
 	// CookieName is the name of the per-app session cookie.
 	// Defaults to "tower_auth".
 	CookieName string `json:"cookie_name,omitempty"`
@@ -186,16 +191,24 @@ func (m TowerAuth) handleLogout(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	clearCookie(w, m.CookieName)
-	http.Redirect(w, r, m.AuthServerURL, http.StatusFound)
+	http.Redirect(w, r, m.redirectAuthServerURL(), http.StatusFound)
 	return nil
 }
 
 // redirectToLogin sends the browser to the auth server login page, passing the
 // current URL as the return destination.
 func (m TowerAuth) redirectToLogin(w http.ResponseWriter, r *http.Request) error {
-	loginURL := m.AuthServerURL + "/login?return=" + url.QueryEscape(fullURL(r))
+	loginURL := m.redirectAuthServerURL() + "/login?return=" + url.QueryEscape(fullURL(r))
 	http.Redirect(w, r, loginURL, http.StatusFound)
 	return nil
+}
+
+// redirectAuthServerURL returns the URL used for browser redirects.
+func (m TowerAuth) redirectAuthServerURL() string {
+	if m.PublicAuthServerURL != "" {
+		return m.PublicAuthServerURL
+	}
+	return m.AuthServerURL
 }
 
 // --- helpers -----------------------------------------------------------------
@@ -252,6 +265,7 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 //
 //	tower_auth {
 //	    auth_server <url>
+//	    public_auth_server <url> # optional, default: auth_server
 //	    cookie_name <name>   # optional, default: tower_auth
 //	    logout_path <path>   # optional, default: /logout
 //	}
@@ -264,6 +278,11 @@ func (m *TowerAuth) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 				return d.ArgErr()
 			}
 			m.AuthServerURL = d.Val()
+		case "public_auth_server":
+			if !d.NextArg() {
+				return d.ArgErr()
+			}
+			m.PublicAuthServerURL = d.Val()
 		case "cookie_name":
 			if !d.NextArg() {
 				return d.ArgErr()
